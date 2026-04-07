@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gemini TCP Port Checker</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: #eee; padding: 20px; }
+        .open { color: #00ff00; font-weight: bold; }
+        .closed { color: #ff4444; }
+        .checking { color: #aaa; font-style: italic; }
+        table { border-collapse: collapse; width: 100%; max-width: 600px; margin-top: 20px; }
+        th, td { border: 1px solid #444; padding: 10px; text-align: left; }
+        th { background: #333; }
+        .status-pill { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <h2>Gemini & Local TCP Port Scanner</h2>
+    <p>This tool attempts to detect services on 127.0.0.1 using connection timing.</p>
+    <button onclick="startScan()">Start Scan</button>
+
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Port</th>
+                <th>Common Usage</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody">
+            </tbody>
+    </table>
+
+    <script>
+        // Common ports for Gemini CLI, MCP servers, and local dev
+        const portsToCheck = [
+            { port: 8080, desc: "Common MCP / Local Web" },
+            { port: 3000, desc: "Dev Server / Node.js" },
+            { port: 50051, desc: "gRPC Default (AI Backend)" },
+            { port: 8000, desc: "FastAPI / Python MCP" },
+            { port: 9000, desc: "PHP-FPM / Debugger" },
+            { port: 11434, desc: "Ollama (Local AI Models)" },
+            { port: 1080, desc: "SOCKS Proxy" }
+        ];
+
+        async function checkPort(port) {
+            const timeout = 1000;
+            const start = performance.now();
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                
+                const timer = setTimeout(() => {
+                    img.src = "";
+                    resolve('closed'); // Timeout usually means closed/stealth
+                }, timeout);
+
+                img.onerror = () => {
+                    clearTimeout(timer);
+                    const diff = performance.now() - start;
+                    // Usually, if it errors VERY fast, it's a "Connection Refused" (Closed)
+                    // If it takes longer, it might be open but rejecting the image request
+                    if (diff < 50) {
+                        resolve('closed');
+                    } else {
+                        resolve('likely open');
+                    }
+                };
+
+                img.onload = () => {
+                    clearTimeout(timer);
+                    resolve('open');
+                };
+
+                img.src = `http://127.0.0.1:${port}/favicon.ico?${Math.random()}`;
+            });
+        }
+
+        async function startScan() {
+            const body = document.getElementById('resultsBody');
+            body.innerHTML = '';
+
+            for (const item of portsToCheck) {
+                const row = body.insertRow();
+                row.innerHTML = `<td>${item.port}</td><td>${item.desc}</td><td id="port-${item.port}" class="checking">Checking...</td>`;
+                
+                const status = await checkPort(item.port);
+                const statusCell = document.getElementById(`port-${item.port}`);
+                statusCell.innerText = status.toUpperCase();
+                statusCell.className = status.includes('open') ? 'open' : 'closed';
+            }
+        }
+    </script>
+</body>
+</html>
