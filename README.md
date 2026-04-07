@@ -1,1 +1,1 @@
-Loopbac, tcp only and AI oriented.
+Loopback, tcp only and AI oriented.
